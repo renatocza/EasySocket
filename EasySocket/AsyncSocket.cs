@@ -17,14 +17,14 @@ namespace EasySocket
      * 
      * UDP IS STILL IN DEVELOPMENT
      * 
-     * ALL VARIABLE/METHODS WILL BE TRANSLATED TO ENGLISH IN THE FUTURE
+     * 
      * 
      */
 
     public class AsyncSocket
     {
-        public event EventHandler<PrecisaTratarDadosEventArgs> OnPrecisaTratarDados;
-        public event EventHandler<SinalizaDesconexaoEventArgs> OnSinalizaDesconexao;
+        public event EventHandler<DataArrivalEventArgs> OnDataArrival;
+        public event EventHandler<DisconnectionEventArgs> OnDisconnect;
         public List<StateObject> Sessions = new List<StateObject>();
         private Socket listener;
         private bool log = false;
@@ -33,6 +33,7 @@ namespace EasySocket
         //UDP
         private byte[] byteData = new byte[1024];
         private EndPoint epFrom = new IPEndPoint(IPAddress.Any, 0);
+
         private AsyncCallback recv = null;
         private State state = new State();
         //UDP
@@ -46,10 +47,33 @@ namespace EasySocket
         }
 
 
-        public AsyncSocket(bool log = false, int numTentativas = 30)
+        public AsyncSocket(bool log = false, int numTentativas = 3)
         {
             this.log = log;
             this.numTentativas = numTentativas;
+        }
+
+        public void Broadcast(byte[] data)
+        {
+            if (listener.ProtocolType == ProtocolType.Tcp)
+                foreach (var item in Sessions)
+                {
+                    Send(item, data);
+                }
+        }
+
+        public void Broadcast(string data)
+        {
+            Broadcast(Encoding.Default.GetBytes(data));
+        }
+        public void Send(StateObject session, string data)
+        {
+            Send(session, Encoding.Default.GetBytes(data));
+        }
+
+        public void Send(string sessionId, string data)
+        {
+            Send(sessionId, Encoding.Default.GetBytes(data));
         }
 
 
@@ -107,6 +131,7 @@ namespace EasySocket
             }
             //else
             //{
+            //      Not implemented
             //    listener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, type);
             //    listener.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.ReuseAddress, true);
             //}
@@ -116,21 +141,23 @@ namespace EasySocket
             // Bind the socket to the local endpoint and listen for incoming connections.  
             try
             {
+                
                 listener.Bind(localEndPoint);
                 if (type == ProtocolType.Tcp)
                 {
                     listener.Listen(0);
-                    Console.WriteLine("Aguardando conexão...");
+                    Console.WriteLine("Waiting connection...");
                     listener.BeginAccept(new AsyncCallback(AcceptCallback), listener);
                 }
-                //else
-                //{
-                //    Console.WriteLine("Aguardando conexão UDP...");
-                //    EndPoint newClientEP = new IPEndPoint(IPAddress.Any, 0);
-                //    //this.listener.BeginReceiveFrom(this.byteData, 0, this.byteData.Length, SocketFlags.None, ref newClientEP, DoReceiveFrom, newClientEP);
-                //    Receive();
+                else
+                {
+                    throw new NotImplementedException("TCP is the only protocol avaliable until now");
+                    //Console.WriteLine("Waiting UDP Connection...");
+                    //EndPoint newClientEP = new IPEndPoint(IPAddress.Any, 0);
+                    ////this.listener.BeginReceiveFrom(this.byteData, 0, this.byteData.Length, SocketFlags.None, ref newClientEP, DoReceiveFrom, newClientEP);
+                    //Receive();
 
-                //}
+                }
                 rodando = true;
 
             }
@@ -140,7 +167,6 @@ namespace EasySocket
             }
         }
 
-        //public event EventHandler<SocketAsyncEventArgs> UdpDataArrival;
 
         private void Receive()
         {
@@ -149,8 +175,8 @@ namespace EasySocket
                 State so = (State)ar.AsyncState;
                 int bytes = listener.EndReceiveFrom(ar, ref epFrom);
                 listener.BeginReceiveFrom(so.buffer, 0, so.buffer.Length, SocketFlags.None, ref epFrom, recv, so);
-                OnPrecisaTratarDados(null, new PrecisaTratarDadosEventArgs(so.buffer, listener.RemoteEndPoint.ToString(), "", DateTime.Now.TimeOfDay));
-                Console.WriteLine("RECV: {0}: {1}, {2}", epFrom.ToString(), bytes, Encoding.ASCII.GetString(so.buffer, 0, bytes));
+                OnDataArrival(null, new DataArrivalEventArgs(so.buffer, listener.RemoteEndPoint.ToString(), "", DateTime.Now.TimeOfDay));
+                //Console.WriteLine($"RECEIVED {Encoding.Default.GetString(so.buffer)}");
             }, state);
         }
 
@@ -182,23 +208,19 @@ namespace EasySocket
             StateObject state = (StateObject)ar.AsyncState;
             try
             {
-                Console.WriteLine("Recebendo informação");
-
-
                 state.workSocket.EndReceive(ar);
 
                 int bytesRead = state.workSocket.Receive(state.buffer);
 
                 if (bytesRead > 0)
                 {
-                    Console.WriteLine(BitConverter.ToString(state.buffer.Take(bytesRead).ToArray()));
+                    //Console.WriteLine(BitConverter.ToString(state.buffer.Take(bytesRead).ToArray()));
 
                     state.DtUltimaMensagem = DateTime.Now;
-                    OnPrecisaTratarDados(null, new PrecisaTratarDadosEventArgs(state.buffer.Take(bytesRead).ToArray(), state.IP, state.SessionID, DateTime.Now.TimeOfDay) { Session = state });
-                    //state.workSocket.BeginReceive(state.buffer, 0, 0, 0, ReceiveCallback, state);
+                    OnDataArrival(null, new DataArrivalEventArgs(state.buffer.Take(bytesRead).ToArray(), state.IP, state.SessionID, DateTime.Now.TimeOfDay) { Session = state });
+                    //Console.WriteLine($"RECEIVED {Encoding.Default.GetString(state.buffer.Take(bytesRead).ToArray())}");
                 }
                 else
-                    //RemoveSocket(state);
                     state.MensagensEmFalha++;
 
                 if (state.MensagensEmFalha < numTentativas)
@@ -238,9 +260,9 @@ namespace EasySocket
                             state.workSocket.Shutdown(SocketShutdown.Send);
                             exc = ex;
                         }
-                        catch
+                        catch(Exception exs)
                         {
-                            
+                            //log
                         }
 
                     }
@@ -248,7 +270,7 @@ namespace EasySocket
                     {
                         state.workSocket.Close();
                         state.workSocket.Dispose();
-                        OnSinalizaDesconexao(null, new SinalizaDesconexaoEventArgs(state.SessionID, exc));
+                        OnDisconnect(null, new DisconnectionEventArgs(state.SessionID, exc));
 
                     }
 
@@ -256,7 +278,7 @@ namespace EasySocket
             }
             catch (Exception ex)
             {
-                
+                //log
             }
         }
 
@@ -289,7 +311,7 @@ namespace EasySocket
             {
                 // Begin sending the data to the remote device.  
                 session.workSocket.Send(Data);
-                Console.WriteLine("Enviado ao cliente");
+                Console.WriteLine("Sending to Client");
                 return true;
             }
             catch (ObjectDisposedException ex)
@@ -329,7 +351,6 @@ namespace EasySocket
         internal void Stop()
         {
             rodando = false;
-            //tmrRemoverDesconectados.Stop();
 
             try
             {
@@ -359,7 +380,7 @@ namespace EasySocket
         }
 
 
-        public void ReiniciaListener()
+        public void RestartListener()
         {
             var ipep = listener.LocalEndPoint.ToString();
             Stop();

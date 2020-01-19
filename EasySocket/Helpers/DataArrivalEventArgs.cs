@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace EasySocket.Helpers
 {
-    public class PrecisaTratarDadosEventArgs : EventArgs
+    public class DataArrivalEventArgs : EventArgs
     {
-        public PrecisaTratarDadosEventArgs(byte[] Dados, string IP, string SessionId, TimeSpan tsRecebimento)
+        public DataArrivalEventArgs(byte[] Dados, string IP, string SessionId, TimeSpan tsRecebimento)
         {
             this.Dados = Dados;
             this.IP = IP;

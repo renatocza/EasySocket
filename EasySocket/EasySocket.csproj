@@ -42,8 +42,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AsyncSocket.cs" />
-    <Compile Include="Helpers\PrecisaTratarDadosEventArgs.cs" />
-    <Compile Include="Helpers\SinalizaDesconexaoEventArgs.cs" />
+    <Compile Include="Helpers\DataArrivalEventArgs.cs" />
+    <Compile Include="Helpers\DisconnectionEventArgs.cs" />
     <Compile Include="Helpers\StateObject.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

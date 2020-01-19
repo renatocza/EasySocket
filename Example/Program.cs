@@ -17,8 +17,8 @@ namespace Example
         {
             AsyncSocket asyncSocket = new AsyncSocket(numTentativas: 2);
 
-            asyncSocket.OnPrecisaTratarDados += AsyncSocket_OnPrecisaTratarDados;
-            asyncSocket.OnSinalizaDesconexao += AsyncSocket_OnSinalizaDesconexao;
+            asyncSocket.OnDataArrival += AsyncSocket_OnPrecisaTratarDados;
+            asyncSocket.OnDisconnect += AsyncSocket_OnSinalizaDesconexao;
 
             asyncSocket.StartListening("127.0.0.1", 1733);
 
@@ -29,16 +29,13 @@ namespace Example
                 string x = Console.ReadLine();
                 if (!string.IsNullOrEmpty(x) && x != "quit")
                     //send to all conected devices
-                    foreach (var item in sessions)
-                    {
-
-                    }
+                    asyncSocket.Broadcast(x);
                 else
                     quit = true;
             }
         }
 
-        private static void AsyncSocket_OnSinalizaDesconexao(object sender, SinalizaDesconexaoEventArgs e)
+        private static void AsyncSocket_OnSinalizaDesconexao(object sender, DisconnectionEventArgs e)
         {
             Console.WriteLine($"Client {e.SessionID} has disconnected");
             if (e.Exception!=null)
@@ -55,9 +52,9 @@ namespace Example
 
         }
 
-        private static void AsyncSocket_OnPrecisaTratarDados(object sender, EasySocket.Helpers.PrecisaTratarDadosEventArgs e)
+        private static void AsyncSocket_OnPrecisaTratarDados(object sender, EasySocket.Helpers.DataArrivalEventArgs e)
         {
-            Console.WriteLine("<<< " + Convert.ToString(e.Dados));
+            Console.WriteLine($"Received {Encoding.Default.GetString(e.Dados)} from {e.SessionId}");
 
             if (!sessions.Exists(x => x.SessionID == e.SessionId))
                 sessions.Add(e.Session);

@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace EasySocket.Helpers
 {
-    public class SinalizaDesconexaoEventArgs : EventArgs
+    public class DisconnectionEventArgs : EventArgs
     {
-        public SinalizaDesconexaoEventArgs(string sessionID, Exception ex = null)
+        public DisconnectionEventArgs(string sessionID, Exception ex = null)
         {
             SessionID = sessionID;
         }
